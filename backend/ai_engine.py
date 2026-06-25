@@ -4,7 +4,7 @@ import cv2
 import os
 from keras.applications.efficientnet import preprocess_input
 
-CLASSES = ["Normal Retina", "Diabetic Retinopathy", "Glaucoma", "Cataract", "Age-related Macular Degeneration"]
+CLASSES = ["Normal Retina", "Diabetic Retinopathy", "Glaucoma", "Cataract"]
 IMG_SIZE = (224, 224)
 MODEL_PATH = os.getenv("MODEL_PATH", "weights/retina_model.h5")
 
