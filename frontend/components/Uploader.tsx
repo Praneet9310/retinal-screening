@@ -260,7 +260,7 @@ export default function Uploader({ onComplete, theme }: UploaderProps) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: { facingMode: facing, width: { ideal: 1920, min: 640 }, height: { ideal: 1080, min: 480 } },
+        video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
       });
       await attachStream(stream);
     } catch (err: unknown) {
@@ -803,15 +803,13 @@ export default function Uploader({ onComplete, theme }: UploaderProps) {
 
             {/* Camera controls */}
             <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-              {hasMultipleCameras && (
-                <button onClick={flipCamera} title="Switch camera" style={{
-                  flex: '0 0 auto', padding: '12px 14px', borderRadius: '10px',
-                  border: `1px solid ${tc.dropBorder(th)}`, background: tc.dropBg(th),
-                  color: tc.text(th), fontSize: '18px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  minWidth: '48px',
-                }}>🔄</button>
-              )}
+<button onClick={flipCamera} title="Switch camera" style={{
+  flex: '0 0 auto', padding: '12px 14px', borderRadius: '10px',
+  border: `1px solid ${tc.dropBorder(th)}`, background: tc.dropBg(th),
+  color: tc.text(th), fontSize: '18px', cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  minWidth: '48px',
+}}>🔄</button>
               <button onClick={captureFrame} style={{
                 flex: 1, padding: '13px', borderRadius: '10px', border: 'none',
                 background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
