@@ -1,11 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import Uploader from '@/components/Uploader';
 
-type Theme = 'dark' | 'light';
 
-interface Result {
+interface PredictionResult {
   id: number;
   disease: string;
   confidence: number;
@@ -14,342 +13,418 @@ interface Result {
   gradcam_url: string;
 }
 
-// ── theme token helpers ──────────────────────────────────────────
+export default function Dashboard() {
+  const theme = 'light' as const;
+  const [result, setResult] = useState<PredictionResult | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  
+
 const t = {
-  text:        (th: Theme) => th === 'dark' ? '#f1f5f9' : '#0f172a',
-  textMuted:   (th: Theme) => th === 'dark' ? '#94a3b8' : '#475569',
-  textFaint:   (th: Theme) => th === 'dark' ? '#475569' : '#94a3b8',
-  card:        (th: Theme) => th === 'dark' ? 'rgba(15,23,42,0.6)'  : 'rgba(255,255,255,0.7)',
-  cardStrong:  (th: Theme) => th === 'dark' ? 'rgba(15,23,42,0.8)'  : 'rgba(255,255,255,0.9)',
-  border:      (th: Theme) => th === 'dark' ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.2)',
-  borderAccent:(th: Theme) => th === 'dark' ? 'rgba(99,102,241,0.3)'  : 'rgba(99,102,241,0.35)',
-  divider:     (th: Theme) => th === 'dark' ? 'rgba(99,102,241,0.2)'  : 'rgba(99,102,241,0.15)',
-  emptyBg:     (th: Theme) => th === 'dark' ? 'rgba(15,23,42,0.4)'   : 'rgba(255,255,255,0.5)',
-  emptyBorder: (th: Theme) => th === 'dark' ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.25)',
-  resultBorder:(th: Theme) => th === 'dark' ? 'rgba(139,92,246,0.3)' : 'rgba(139,92,246,0.35)',
-  btnSwitch:   (th: Theme) => th === 'dark'
-    ? 'rgba(15,23,42,0.8)'
-    : 'rgba(255,255,255,0.9)',
-  btnSwitchBorder:(th: Theme) => th === 'dark'
-    ? 'rgba(99,102,241,0.3)'
-    : 'rgba(99,102,241,0.4)',
+    surface: 'rgba(255,255,255,0.85)',
+    border: 'rgba(99,102,241,0.15)',
+    borderStrong: 'rgba(99,102,241,0.3)',
+    text: '#0f172a',
+    textMuted: '#64748b',
+    textSub: '#475569',
+    shadow: '0 4px 24px rgba(99,102,241,0.08)',
+    accentLight: 'rgba(99,102,241,0.07)',
+    statsHover: '0 8px 28px rgba(99,102,241,0.15)',
 };
 
-const riskColor  = (r: string) => r === 'High' ? '#f87171' : r === 'Moderate' ? '#fbbf24' : '#34d399';
-const riskBg     = (r: string) => r === 'High' ? 'rgba(248,113,113,0.15)' : r === 'Moderate' ? 'rgba(251,191,36,0.15)' : 'rgba(52,211,153,0.15)';
-const riskBorder = (r: string) => r === 'High' ? 'rgba(248,113,113,0.3)'  : r === 'Moderate' ? 'rgba(251,191,36,0.3)'  : 'rgba(52,211,153,0.3)';
-
-export default function Dashboard() {
-  const [theme, setTheme]   = useState<Theme>('dark');
-  const [result, setResult] = useState<Result | null>(null);
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-  const toggle = () => setTheme(th => th === 'dark' ? 'light' : 'dark');
+  if (!mounted) return null;
 
   return (
     <div style={{
       minHeight: '100vh',
-      color: t.text(theme),
-      fontFamily: "'Inter', -apple-system, sans-serif",
-      padding: '32px',
+      color: t.text,
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      padding: isMobile ? '16px' : '28px 36px',
       position: 'relative',
       transition: 'color 0.3s ease',
     }}>
-      <AnimatedBackground theme={theme} />
+      <AnimatedBackground theme="light" />
 
       <div style={{ maxWidth: '1200px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
 
-        {/* ── Header ── */}
+        {/* ── HEADER ── */}
         <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-          paddingBottom: '24px', borderBottom: `1px solid ${t.divider(theme)}`,
-          marginBottom: '32px', flexWrap: 'wrap', gap: '16px',
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: 'space-between',
+          alignItems: isMobile ? 'flex-start' : 'center',
+          marginBottom: '28px',
+          paddingBottom: '20px',
+          borderBottom: `1px solid ${t.border}`,
+          gap: '14px',
         }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '5px' }}>
               <div style={{
-                width: '36px', height: '36px', borderRadius: '10px',
-                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px',
-              }}>👁️</div>
-              <h1 style={{
-                fontSize: '32px', fontWeight: 900, margin: 0,
-                background: 'linear-gradient(135deg, #60a5fa, #a78bfa)',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                width: '38px', height: '38px', borderRadius: '10px', flexShrink: 0,
+                background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(79,70,229,0.35)',
               }}>
-                Retinal Diagnostics AI
-              </h1>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <circle cx="10" cy="10" r="9" stroke="white" strokeWidth="1.2" strokeDasharray="3 2" />
+                  <circle cx="10" cy="10" r="5.5" stroke="white" strokeWidth="0.8" />
+                  <circle cx="10" cy="10" r="2.8" fill="white" opacity="0.9" />
+                  <circle cx="11.5" cy="8.5" r="1" fill="rgba(79,70,229,0.8)" />
+                </svg>
+              </div>
+              <div>
+                <h1 style={{
+                  fontSize: isMobile ? '20px' : '26px',
+                  fontWeight: '800', margin: 0, lineHeight: 1.1,
+                  background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  letterSpacing: '-0.02em',
+                }}>
+                  Retinal Diagnostics AI
+                </h1>
+              </div>
             </div>
-            <p style={{ color: t.textMuted(theme), fontSize: '14px', margin: 0, marginLeft: '48px' }}>
-              Explainable Multi-Class Clinical Decision Support System
+            <p style={{
+              color: t.textSub, fontSize: '12px', marginLeft: '50px',
+            }}>
+              Explainable Multi-Class Clinical Decision Support · EfficientNet + Grad-CAM XAI
             </p>
           </div>
 
-          {/* Right side: badges + theme toggle */}
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{
-              background: t.card(theme), border: `1px solid ${t.border(theme)}`,
-              padding: '10px 16px', borderRadius: '12px', fontSize: '14px',
-              backdropFilter: 'blur(16px)',
+              background: t.surface, border: `1px solid ${t.border}`,
+              padding: '8px 14px', borderRadius: '10px', fontSize: '13px',
+              backdropFilter: 'blur(12px)', boxShadow: t.shadow,
             }}>
-              <span style={{ color: '#60a5fa', fontWeight: 700 }}>1,248</span>
-              <span style={{ color: t.textMuted(theme) }}> Total Scans</span>
+              <span style={{ color: '#4f46e5', fontWeight: '700' }}>1,248</span>
+              <span style={{ color: t.textMuted }}> scans processed</span>
             </div>
-
             <div style={{
-              background: t.card(theme), border: '1px solid rgba(52,211,153,0.2)',
-              padding: '10px 16px', borderRadius: '12px', fontSize: '14px',
-              backdropFilter: 'blur(16px)', display: 'flex', alignItems: 'center', gap: '8px',
+              background: t.surface, border: '1px solid rgba(34,197,94,0.2)',
+              padding: '8px 14px', borderRadius: '10px', fontSize: '13px',
+              backdropFilter: 'blur(12px)', boxShadow: t.shadow,
+              display: 'flex', alignItems: 'center', gap: '7px',
             }}>
               <div style={{
-                width: '8px', height: '8px', borderRadius: '50%',
-                background: '#34d399', boxShadow: '0 0 8px #34d399',
-                animation: 'orbPulse 2s infinite',
+                width: '7px', height: '7px', borderRadius: '50%',
+                background: '#22c55e', boxShadow: '0 0 8px #22c55e',
+                animation: 'livePulse 2s ease-in-out infinite',
               }} />
-              <span style={{ color: '#34d399', fontWeight: 600 }}>System Online</span>
+              <span style={{ color: '#16a34a', fontWeight: '600' }}>System Online</span>
             </div>
-
-            {/* ── Theme toggle button ── */}
-            <button
-              onClick={toggle}
-              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                padding: '10px 16px', borderRadius: '12px', cursor: 'pointer',
-                background: t.btnSwitch(theme), border: `1px solid ${t.btnSwitchBorder(theme)}`,
-                color: t.text(theme), fontSize: '14px', fontWeight: 600,
-                backdropFilter: 'blur(16px)',
-                boxShadow: theme === 'dark'
-                  ? '0 2px 12px rgba(99,102,241,0.2)'
-                  : '0 2px 12px rgba(99,102,241,0.12)',
-              }}
-            >
-              {/* Track */}
-              <div style={{
-                width: '36px', height: '20px', borderRadius: '10px', position: 'relative',
-                background: theme === 'dark'
-                  ? 'linear-gradient(90deg, #3b82f6, #8b5cf6)'
-                  : 'linear-gradient(90deg, #fbbf24, #f59e0b)',
-                transition: 'background 0.4s ease',
-                flexShrink: 0,
-              }}>
-                {/* Thumb */}
-                <div style={{
-                  position: 'absolute', top: '2px',
-                  left: theme === 'dark' ? '2px' : '18px',
-                  width: '16px', height: '16px', borderRadius: '50%',
-                  background: '#fff',
-                  transition: 'left 0.3s ease',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
-                }} />
-              </div>
-              <span style={{ fontSize: '16px' }}>{theme === 'dark' ? '🌙' : '☀️'}</span>
-              <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
-            </button>
           </div>
         </div>
 
-        {/* ── Stats Row ── */}
+        {/* ── STATS ── */}
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: '16px', marginBottom: '32px',
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
+          gap: '12px', marginBottom: '24px',
         }}>
           {[
-            { label: 'Model Accuracy',  value: '94.2%',  color: '#60a5fa' },
-            { label: 'Avg Confidence',  value: '91.7%',  color: '#a78bfa' },
-            { label: 'Disease Classes', value: '5',       color: '#34d399' },
-            { label: 'Grad-CAM XAI',   value: 'Active',  color: '#f59e0b' },
-          ].map((stat) => (
-            <div key={stat.label}
-              style={{
-                background: t.card(theme), border: `1px solid ${t.border(theme)}`,
-                borderRadius: '16px', padding: '20px', backdropFilter: 'blur(16px)',
-                transition: 'transform 0.2s, box-shadow 0.2s', cursor: 'default',
-              }}
+            { label: 'Model Accuracy', value: '94.2%', color: '#4f46e5', icon: '🎯' },
+            { label: 'Avg Confidence', value: '91.7%', color: '#7c3aed', icon: '📊' },
+            { label: 'Disease Classes', value: '4', color: '#0891b2', icon: '🔬' },
+            { label: 'Grad-CAM XAI', value: 'Active', color: '#059669', icon: '⬡' },
+          ].map((s) => (
+            <div key={s.label} style={{
+              background: t.surface, border: `1px solid ${t.border}`,
+              borderRadius: '14px', padding: isMobile ? '14px 16px' : '18px 20px',
+              backdropFilter: 'blur(12px)', boxShadow: t.shadow,
+              transition: 'transform 0.2s, box-shadow 0.2s', cursor: 'default',
+            }}
               onMouseEnter={e => {
-                (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)';
-                (e.currentTarget as HTMLDivElement).style.boxShadow = `0 8px 32px ${stat.color}33`;
+                (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)';
+                (e.currentTarget as HTMLElement).style.boxShadow = t.statsHover;
               }}
               onMouseLeave={e => {
-                (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
-                (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
+                (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+                (e.currentTarget as HTMLElement).style.boxShadow = t.shadow;
               }}
             >
-              <div style={{ fontSize: '28px', fontWeight: 900, color: stat.color, marginBottom: '4px' }}>
-                {stat.value}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '16px' }}>{s.icon}</span>
+                <span style={{ fontSize: '10px', color: t.textMuted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                  {s.label}
+                </span>
               </div>
-              <div style={{
-                fontSize: '12px', color: t.textFaint(theme), fontWeight: 600,
-                textTransform: 'uppercase', letterSpacing: '0.05em',
-              }}>
-                {stat.label}
+              <div style={{ fontSize: isMobile ? '22px' : '26px', fontWeight: '800', color: s.color }}>
+                {s.value}
               </div>
             </div>
           ))}
         </div>
 
-        {/* ── Main Grid ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
+        {/* ── MAIN GRID ── */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : '340px 1fr',
+          gap: '20px', alignItems: 'start',
+        }}>
 
-          {/* Left panel */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* LEFT — Upload + Classes */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
             {/* Uploader card */}
             <div style={{
-              background: t.card(theme), border: `1px solid ${t.borderAccent(theme)}`,
-              borderRadius: '20px', overflow: 'hidden', backdropFilter: 'blur(16px)',
-              boxShadow: '0 0 40px rgba(99,102,241,0.08)',
+              background: t.surface, border: `1px solid ${t.borderStrong}`,
+              borderRadius: '18px', overflow: 'hidden',
+              backdropFilter: 'blur(12px)', boxShadow: t.shadow,
             }}>
-              <Uploader onComplete={setResult} theme={theme} />
+              <Uploader onComplete={setResult} theme="light" />
             </div>
 
             {/* Disease classes */}
             <div style={{
-              background: t.card(theme), border: `1px solid ${t.border(theme)}`,
-              borderRadius: '20px', padding: '24px', backdropFilter: 'blur(16px)',
+              background: t.surface, border: `1px solid ${t.border}`,
+              borderRadius: '18px', padding: '20px',
+              backdropFilter: 'blur(12px)', boxShadow: t.shadow,
             }}>
               <p style={{
-                fontSize: '11px', fontWeight: 700, color: t.textFaint(theme),
-                textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px',
-              }}>Disease Classes</p>
+                fontSize: '10px', fontWeight: '700', color: t.textMuted,
+                textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '14px',
+              }}>
+                Screened Conditions
+              </p>
               {[
-                { name: 'Normal Retina',        color: '#34d399', risk: 'Low'      },
-                { name: 'Diabetic Retinopathy', color: '#fbbf24', risk: 'High'     },
-                { name: 'Glaucoma',             color: '#f87171', risk: 'High'     },
-                { name: 'Cataract',             color: '#fb923c', risk: 'Moderate' },
-                { name: 'AMD',                  color: '#c084fc', risk: 'High'     },
+                { name: 'Normal Retina',         color: '#16a34a', risk: 'Low',      icon: '✓' },
+                { name: 'Diabetic Retinopathy',  color: '#d97706', risk: 'High',     icon: '⚠' },
+                { name: 'Glaucoma',              color: '#dc2626', risk: 'High',     icon: '⚠' },
+                { name: 'Cataract',              color: '#ea580c', risk: 'Moderate', icon: '~' },
               ].map((cls, i, arr) => (
                 <div key={cls.name} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '10px 0',
-                  borderBottom: i < arr.length - 1 ? `1px solid ${t.border(theme)}` : 'none',
+                  padding: '9px 0',
+                  borderBottom: i < arr.length - 1 ? `1px solid ${t.border}` : 'none',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div style={{
-                      width: '8px', height: '8px', borderRadius: '50%',
-                      background: cls.color, boxShadow: `0 0 6px ${cls.color}`, flexShrink: 0,
-                    }} />
-                    <span style={{ fontSize: '13px', color: t.text(theme) }}>{cls.name}</span>
+                      width: '28px', height: '28px', borderRadius: '7px', flexShrink: 0,
+                      background: `${cls.color}18`, border: `1px solid ${cls.color}40`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: cls.color, fontSize: '12px', fontWeight: '700',
+                    }}>
+                      {cls.icon}
+                    </div>
+                    <span style={{ fontSize: '13px', color: t.text, fontWeight: '500' }}>
+                      {cls.name}
+                    </span>
                   </div>
                   <span style={{
-                    fontSize: '10px', fontWeight: 700, padding: '3px 8px',
+                    fontSize: '10px', fontWeight: '700', padding: '3px 9px',
                     borderRadius: '20px', textTransform: 'uppercase',
-                    background: riskBg(cls.risk), color: riskColor(cls.risk),
-                    border: `1px solid ${riskBorder(cls.risk)}`,
-                  }}>{cls.risk}</span>
+                    background: `${cls.color}15`, color: cls.color,
+                    border: `1px solid ${cls.color}35`,
+                  }}>
+                    {cls.risk}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Right panel — results */}
+          {/* RIGHT — Results */}
           <div>
             {result ? (
               <div style={{
-                background: t.cardStrong(theme), border: `1px solid ${t.resultBorder(theme)}`,
-                borderRadius: '20px', padding: '32px', backdropFilter: 'blur(16px)',
-                boxShadow: '0 0 60px rgba(139,92,246,0.08)',
-                animation: 'fadeIn 0.4s ease',
+                background: t.surface, border: `1px solid ${t.borderStrong}`,
+                borderRadius: '18px', padding: isMobile ? '20px' : '28px',
+                backdropFilter: 'blur(12px)', boxShadow: t.shadow,
+                animation: 'slideUp 0.35s ease',
               }}>
                 {/* Result header */}
                 <div style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                  marginBottom: '28px', flexWrap: 'wrap', gap: '16px',
+                  display: 'flex',
+                  flexDirection: isMobile ? 'column' : 'row',
+                  justifyContent: 'space-between',
+                  gap: '16px', marginBottom: '24px',
+                  paddingBottom: '20px',
+                  borderBottom: `1px solid ${t.border}`,
                 }}>
                   <div>
-                    <p style={{ fontSize: '11px', color: t.textFaint(theme), textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>
-                      Diagnosis Result
+                    <p style={{
+                      fontSize: '10px', color: t.textMuted, textTransform: 'uppercase',
+                      letterSpacing: '0.1em', marginBottom: '6px', fontWeight: '600',
+                    }}>
+                      AI Diagnosis
                     </p>
-                    <h2 style={{ fontSize: '28px', fontWeight: 900, color: t.text(theme), marginBottom: '12px' }}>
+                    <h2 style={{
+                      fontSize: isMobile ? '22px' : '28px', fontWeight: '800',
+                      color: t.text, marginBottom: '12px', letterSpacing: '-0.02em',
+                    }}>
                       {result.disease}
                     </h2>
                     <span style={{
-                      padding: '6px 14px', borderRadius: '20px', fontSize: '11px',
-                      fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
-                      background: riskBg(result.risk_level), color: riskColor(result.risk_level),
-                      border: `1px solid ${riskBorder(result.risk_level)}`,
-                    }}>● {result.risk_level} Risk</span>
+                      padding: '6px 14px', borderRadius: '8px', fontSize: '12px',
+                      fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em',
+                      background: result.risk_level === 'High'
+                        ? 'rgba(220,38,38,0.1)' : result.risk_level === 'Moderate'
+                        ? 'rgba(217,119,6,0.1)' : 'rgba(22,163,74,0.1)',
+                      color: result.risk_level === 'High' ? '#dc2626'
+                        : result.risk_level === 'Moderate' ? '#d97706' : '#16a34a',
+                      border: `1px solid ${result.risk_level === 'High'
+                        ? 'rgba(220,38,38,0.25)' : result.risk_level === 'Moderate'
+                        ? 'rgba(217,119,6,0.25)' : 'rgba(22,163,74,0.25)'}`,
+                    }}>
+                      {result.risk_level === 'High' ? '⚠ '
+                        : result.risk_level === 'Moderate' ? '~ ' : '✓ '}
+                      {result.risk_level} Risk
+                    </span>
                   </div>
 
-                  <div style={{ textAlign: 'right' }}>
+                  {/* Confidence box */}
+                  <div style={{
+                    background: t.accentLight, border: `1px solid ${t.border}`,
+                    borderRadius: '14px', padding: '16px 24px',
+                    textAlign: 'center', flexShrink: 0,
+                  }}>
                     <div style={{
-                      fontSize: '52px', fontWeight: 900, lineHeight: 1,
-                      background: 'linear-gradient(135deg, #60a5fa, #a78bfa)',
+                      fontSize: '42px', fontWeight: '900', lineHeight: 1,
+                      background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
                       WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                     }}>
                       {(result.confidence * 100).toFixed(1)}%
                     </div>
-                    <div style={{ color: t.textFaint(theme), fontSize: '12px', fontWeight: 600, marginTop: '4px' }}>
+                    <div style={{ color: t.textMuted, fontSize: '11px', fontWeight: '600', marginTop: '4px' }}>
                       Confidence Score
                     </div>
                     <div style={{
-                      width: '120px', height: '4px', background: 'rgba(99,102,241,0.2)',
-                      borderRadius: '2px', marginTop: '8px', marginLeft: 'auto',
+                      width: '100%', height: '4px', background: t.border,
+                      borderRadius: '2px', marginTop: '10px',
                     }}>
                       <div style={{
-                        width: `${(result.confidence * 100).toFixed(1)}%`, height: '100%',
-                        background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
+                        width: `${result.confidence * 100}%`, height: '100%',
+                        background: 'linear-gradient(90deg, #4f46e5, #7c3aed)',
                         borderRadius: '2px', transition: 'width 1s ease',
                       }} />
                     </div>
                   </div>
                 </div>
 
-                {/* Images */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                {/* Scan images */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                  gap: '16px', marginBottom: '20px',
+                }}>
                   <div>
-                    <p style={{ fontSize: '11px', color: t.textFaint(theme), textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 700 }}>
-                      Original Scan
+                    <p style={{
+                      fontSize: '10px', fontWeight: '700', textTransform: 'uppercase',
+                      letterSpacing: '0.08em', marginBottom: '8px', color: t.textMuted,
+                    }}>
+                      Original Fundus Scan
                     </p>
-                    <img src={`${API}${result.original_url}`} alt="Original retinal scan"
-                      style={{ width: '100%', borderRadius: '12px', border: `1px solid ${t.border(theme)}`, display: 'block' }} />
+                    <div style={{
+                      borderRadius: '12px', overflow: 'hidden',
+                      border: `1px solid ${t.border}`,
+                    }}>
+                      <img
+                        src={`${process.env.NEXT_PUBLIC_API_URL}${result.original_url}`}
+                        alt="Original scan"
+                        style={{ width: '100%', display: 'block' }}
+                      />
+                    </div>
                   </div>
                   <div>
-                    <p style={{ fontSize: '11px', color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 700 }}>
-                      ⬡ Grad-CAM Heatmap
+                    <p style={{
+                      fontSize: '10px', fontWeight: '700', textTransform: 'uppercase',
+                      letterSpacing: '0.08em', marginBottom: '8px', color: '#7c3aed',
+                    }}>
+                      ⬡ Grad-CAM Explanation
                     </p>
-                    <img src={`${API}${result.gradcam_url}`} alt="Grad-CAM heatmap"
-                      style={{ width: '100%', borderRadius: '12px', border: '1px solid rgba(139,92,246,0.3)', boxShadow: '0 0 20px rgba(139,92,246,0.12)', display: 'block' }} />
+                    <div style={{
+                      borderRadius: '12px', overflow: 'hidden',
+                      border: '1px solid rgba(124,58,237,0.3)',
+                      boxShadow: '0 0 20px rgba(124,58,237,0.1)',
+                    }}>
+                      <img
+                        src={`${process.env.NEXT_PUBLIC_API_URL}${result.gradcam_url}`}
+                        alt="Grad-CAM heatmap"
+                        style={{ width: '100%', display: 'block' }}
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Footer */}
                 <div style={{
-                  paddingTop: '16px', borderTop: `1px solid ${t.border(theme)}`,
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  display: 'flex', justifyContent: 'space-between',
+                  flexWrap: 'wrap', gap: '8px',
+                  paddingTop: '14px', borderTop: `1px solid ${t.border}`,
                 }}>
-                  <span style={{ fontSize: '12px', color: t.textFaint(theme) }}>
-                    Record ID: <span style={{ color: t.textMuted(theme), fontFamily: 'monospace' }}>#{result.id}</span>
+                  <span style={{ fontSize: '12px', color: t.textMuted }}>
+                    Record{' '}
+                    <span style={{ fontFamily: 'monospace', color: t.textSub }}>
+                      #{result.id}
+                    </span>
                   </span>
-                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', color: '#34d399' }}>✓ Saved to database</span>
-                    <button onClick={() => setResult(null)} style={{
-                      padding: '6px 14px', borderRadius: '8px', fontSize: '12px',
-                      border: `1px solid ${t.borderAccent(theme)}`,
-                      background: t.card(theme), color: t.textMuted(theme),
-                      cursor: 'pointer', fontWeight: 600,
-                    }}>← New Scan</button>
-                  </div>
+                  <button
+                    onClick={() => setResult(null)}
+                    style={{
+                      background: 'none', border: `1px solid ${t.border}`,
+                      color: t.textMuted, padding: '4px 12px', borderRadius: '6px',
+                      fontSize: '12px', cursor: 'pointer',
+                    }}
+                  >
+                    ↩ New scan
+                  </button>
+                  <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: '600' }}>
+                    ✓ Saved to database
+                  </span>
                 </div>
               </div>
             ) : (
+              /* Empty state */
               <div style={{
-                background: t.emptyBg(theme), border: `1px dashed ${t.emptyBorder(theme)}`,
-                borderRadius: '20px', minHeight: '500px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                backdropFilter: 'blur(16px)',
+                background: t.surface, border: `1.5px dashed ${t.border}`,
+                borderRadius: '18px', minHeight: isMobile ? '220px' : '480px',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                backdropFilter: 'blur(12px)', padding: '40px',
               }}>
-                <div style={{
-                  width: '64px', height: '64px', borderRadius: '50%',
-                  background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '28px', marginBottom: '16px',
-                }}>👁️</div>
-                <p style={{ color: t.textMuted(theme), fontWeight: 600, marginBottom: '6px' }}>
+                <div style={{ position: 'relative', width: '72px', height: '72px', marginBottom: '20px' }}>
+                  <svg width="72" height="72" viewBox="0 0 72 72">
+                    <circle cx="36" cy="36" r="34"
+                      fill='rgba(79,70,229,0.12)'
+                      strokeWidth="1" strokeDasharray="4 4"
+                      style={{ transformOrigin: '36px 36px', animation: 'rotate 20s linear infinite' }}
+                    />
+                    <circle cx="36" cy="36" r="24"
+                      fill="none" stroke='rgba(79,70,229,0.08)'
+                      strokeWidth="1"
+                      style={{ transformOrigin: '36px 36px', animation: 'rotateR 15s linear infinite' }}
+                    />
+                    <circle cx="36" cy="36" r="14"
+                      fill='rgba(79,70,229,0.08)'
+                      style={{ animation: 'pulse 3s ease-in-out infinite' }}
+                    />
+                    <circle cx="36" cy="36" r="6" fill="#4f46e5" opacity="0.8" />
+                    <circle cx="39" cy="33" r="2.5" fill="rgba(255,255,255,0.7)" />
+                  </svg>
+                </div>
+                <p style={{
+                  fontWeight: '700', fontSize: '16px', color: t.text,
+                  marginBottom: '8px', textAlign: 'center',
+                }}>
                   Upload a retinal scan to begin
                 </p>
-                <p style={{ color: t.textFaint(theme), fontSize: '13px' }}>
-                  AI diagnosis + Grad-CAM visualization will appear here
+                <p style={{
+                  color: t.textMuted, fontSize: '13px',
+                  textAlign: 'center', maxWidth: '260px', lineHeight: 1.6,
+                }}>
+                  AI will classify the condition and generate a Grad-CAM heatmap showing what it detected
                 </p>
               </div>
             )}
@@ -358,14 +433,25 @@ export default function Dashboard() {
       </div>
 
       <style>{`
-        @keyframes orbPulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50%       { opacity: 0.5; transform: scale(0.85); }
-        }
-        @keyframes fadeIn {
+        @keyframes slideUp {
           from { opacity: 0; transform: translateY(12px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        @keyframes livePulse {
+          0%,100% { opacity:1; transform:scale(1); }
+          50%     { opacity:0.5; transform:scale(0.85); }
+        }
+        @keyframes rotate  { to { transform: rotate(360deg);  } }
+        @keyframes rotateR { to { transform: rotate(-360deg); } }
+        @keyframes pulse {
+          0%,100% { opacity:0.6; transform:scale(1);    }
+          50%     { opacity:1;   transform:scale(1.1); }
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 3px; }
       `}</style>
     </div>
   );
