@@ -15,11 +15,7 @@ app = FastAPI(title="Retinal AI Screening API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-    "https://retinal-screening.vercel.app",
-    "https://retinal-disease-screening-system.vercel.app",
-    "http://localhost:3000",
-],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -74,7 +70,8 @@ def get_history(limit: int = 10, db: Session = Depends(get_db)):
         models.PredictionRecord.created_at.desc()
     ).limit(limit).all()
     return records
-    @app.get("/stats")
+
+@app.get("/stats")
 def get_stats(db: Session = Depends(get_db)):
     total_scans = db.query(models.PredictionRecord).count()
     return {"total_scans": total_scans}
