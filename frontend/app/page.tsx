@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import Uploader from '@/components/Uploader';
-
+import LiveMonitor from '@/components/livemonitor';
 
 interface PredictionResult {
   id: number;
@@ -18,18 +18,34 @@ export default function Dashboard() {
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [scanCount, setScanCount] = useState<number | null>(null);
+  const [showLiveMonitor, setShowLiveMonitor] = useState(false);
+
+  const fetchScanCount = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stats`);
+      const data = await res.json();
+      setScanCount(data.total_scans);
+    } catch (err) {
+      console.error('Failed to fetch scan count', err);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
+    fetchScanCount();
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  
+  const handleScanComplete = (newResult: PredictionResult) => {
+    setResult(newResult);
+    fetchScanCount();
+  };
 
-const t = {
+  const t = {
     surface: 'rgba(255,255,255,0.85)',
     border: 'rgba(99,102,241,0.15)',
     borderStrong: 'rgba(99,102,241,0.3)',
@@ -39,7 +55,7 @@ const t = {
     shadow: '0 4px 24px rgba(99,102,241,0.08)',
     accentLight: 'rgba(99,102,241,0.07)',
     statsHover: '0 8px 28px rgba(99,102,241,0.15)',
-};
+  };
 
   if (!mounted) return null;
 
@@ -108,7 +124,9 @@ const t = {
               padding: '8px 14px', borderRadius: '10px', fontSize: '13px',
               backdropFilter: 'blur(12px)', boxShadow: t.shadow,
             }}>
-              <span style={{ color: '#4f46e5', fontWeight: '700' }}>1,248</span>
+              <span style={{ color: '#4f46e5', fontWeight: '700' }}>
+                {scanCount != null ? scanCount.toLocaleString() : '—'}
+              </span>
               <span style={{ color: t.textMuted }}> scans processed</span>
             </div>
             <div style={{
@@ -183,7 +201,11 @@ const t = {
               borderRadius: '18px', overflow: 'hidden',
               backdropFilter: 'blur(12px)', boxShadow: t.shadow,
             }}>
-              <Uploader onComplete={setResult} theme="light" />
+              <Uploader
+                onComplete={handleScanComplete}
+                theme="light"
+                onOpenLiveCamera={() => setShowLiveMonitor(true)}
+              />
             </div>
 
             {/* Disease classes */}
@@ -199,7 +221,7 @@ const t = {
                 Screened Conditions
               </p>
               {[
-                { name: 'Normal Retina',         color: '#16a34a', risk: 'Low',      icon: '✓' },
+                { name: 'Normal Retina',        color: '#16a34a', risk: 'Low',      icon: '✓' },
                 { name: 'Diabetic Retinopathy',  color: '#d97706', risk: 'High',     icon: '⚠' },
                 { name: 'Glaucoma',              color: '#dc2626', risk: 'High',     icon: '⚠' },
                 { name: 'Cataract',              color: '#ea580c', risk: 'Moderate', icon: '~' },
@@ -431,6 +453,14 @@ const t = {
           </div>
         </div>
       </div>
+
+      {showLiveMonitor && (
+        <LiveMonitor
+          theme="light"
+          onClose={() => setShowLiveMonitor(false)}
+          onComplete={fetchScanCount}
+        />
+      )}
 
       <style>{`
         @keyframes slideUp {
