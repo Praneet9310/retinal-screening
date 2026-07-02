@@ -13,6 +13,7 @@ interface LiveResult {
 interface Props {
   theme: Theme;
   onClose: () => void;
+  onComplete?: () => void | Promise<void>;
 }
 
 const tc = {
@@ -26,7 +27,7 @@ const tc = {
 const riskColor = (r: string) => r === 'High' ? '#f87171' : r === 'Moderate' ? '#fbbf24' : '#34d399';
 const riskBg    = (r: string) => r === 'High' ? 'rgba(248,113,113,0.15)' : r === 'Moderate' ? 'rgba(251,191,36,0.15)' : 'rgba(52,211,153,0.15)';
 
-export default function LiveMonitor({ theme, onClose }: Props) {
+export default function LiveMonitor({ theme, onClose, onComplete }: Props) {
   const videoRef    = useRef<HTMLVideoElement>(null);
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const overlayRef  = useRef<HTMLCanvasElement>(null);
@@ -170,6 +171,7 @@ export default function LiveMonitor({ theme, onClose }: Props) {
           confidence: data.confidence ?? 0,
           risk_level: data.risk_level ?? deriveRisk(data.predicted_class ?? ''),
         });
+        onComplete?.();
       } catch {
         setResult({ disease: 'Backend offline', confidence: 0, risk_level: 'Unknown' });
       } finally {
@@ -466,3 +468,5 @@ function deriveRisk(cls: string): string {
   if (l.includes('cataract')) return 'Moderate';
   return 'High';
 }
+
+
