@@ -44,15 +44,11 @@ export default function LiveMonitor({ theme, onClose, onComplete }: Props) {
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
   // Start camera
-  useEffect(() => {
+ useEffect(() => {
     if (!navigator.mediaDevices?.getUserMedia) { setStatus('nosupport'); return; }
     navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } })
       .then(stream => {
         streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-        }
         setStatus('active');
       })
       .catch(() => setStatus('denied'));
@@ -62,6 +58,14 @@ export default function LiveMonitor({ theme, onClose, onComplete }: Props) {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, []);
+
+  // Attach stream once the <video> element actually mounts
+  useEffect(() => {
+    if (status === 'active' && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(err => console.error('Video play failed:', err));
+    }
+  }, [status]);
 
   // Overlay animation loop
   useEffect(() => {
