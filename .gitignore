@@ -30,3 +30,9 @@ backend/weights/*.pth
 
 # IDE
 .vscode/
+# Dataset (large files, not meant for git)
+backend/dataset/
+backend/*.zip
+
+# Kaggle credentials (safety net)
+kaggle.json

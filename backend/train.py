@@ -13,6 +13,7 @@ Output: backend/weights/retina_model.h5
 """
 
 import os
+import gc
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, Model
@@ -24,7 +25,6 @@ from tensorflow.keras.callbacks import (
 )
 
 # ─── CONFIG ────────────────────────────────────────────────────────────────────
-# Adjust DATASET_DIR to wherever your images are
 DATASET_DIR  = os.path.join(os.path.dirname(__file__), "dataset")
 WEIGHTS_DIR  = os.path.join(os.path.dirname(__file__), "weights")
 OUTPUT_MODEL = os.path.join(WEIGHTS_DIR, "retina_model.h5")
@@ -36,7 +36,7 @@ CLASSES   = [
     "Cataract",
 ]
 IMG_SIZE    = (224, 224)
-BATCH_SIZE  = 32
+BATCH_SIZE  = 16
 EPOCHS      = 30
 FINE_TUNE_EPOCHS = 20
 LEARNING_RATE    = 1e-3
@@ -49,7 +49,6 @@ print(f"TensorFlow version : {tf.__version__}")
 print(f"Dataset directory  : {DATASET_DIR}")
 print(f"Output model path  : {OUTPUT_MODEL}")
 
-# Verify dataset folders exist
 missing = [c for c in CLASSES if not os.path.isdir(os.path.join(DATASET_DIR, c))]
 if missing:
     print("\n⚠️  Missing class folders in dataset/:")
@@ -107,6 +106,11 @@ print(f"\nTraining samples   : {train_gen.samples}")
 print(f"Validation samples : {val_gen.samples}")
 print(f"Classes found      : {train_gen.class_indices}")
 
+# ─── MEMORY CLEANUP CALLBACK ───────────────────────────────────────────────────
+class MemoryCleanupCallback(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        gc.collect()
+
 # ─── MODEL ─────────────────────────────────────────────────────────────────────
 def build_model(num_classes: int, trainable_base: bool = False) -> Model:
     base = EfficientNetB0(
@@ -117,7 +121,7 @@ def build_model(num_classes: int, trainable_base: bool = False) -> Model:
     base.trainable = trainable_base
 
     inputs  = base.input
-    x       = base.output                                   # (7,7,1280)
+    x       = base.output
     x       = layers.GlobalAveragePooling2D()(x)
     x       = layers.BatchNormalization()(x)
     x       = layers.Dropout(0.4)(x)
@@ -163,6 +167,7 @@ callbacks_phase1 = [
         min_lr=1e-7,
         verbose=1,
     ),
+    MemoryCleanupCallback(),
 ]
 
 history1 = model.fit(
@@ -173,27 +178,30 @@ history1 = model.fit(
     verbose=1,
 )
 
+PHASE1_MODEL = os.path.join(WEIGHTS_DIR, "phase1_head_only.h5")
+model.save(PHASE1_MODEL)
+print(f"Phase 1 checkpoint saved to: {PHASE1_MODEL}")
+
 # ─── PHASE 2 — Fine-tune top layers ────────────────────────────────────────────
 print("\n" + "="*60)
 print("PHASE 2 — Fine-tuning top layers of EfficientNetB0")
 print("="*60)
 
-# Unfreeze top 30 layers of the base
-base_model = model.layers[1] if hasattr(model.layers[1], 'layers') else None
-if base_model is None:
-    # Find EfficientNetB0 layer
-    for layer in model.layers:
-        if isinstance(layer, tf.keras.Model):
-            base_model = layer
-            break
+unfreeze_from = "block6a"
+unfreezing = False
+unfrozen_count = 0
 
-if base_model:
-    base_model.trainable = True
-    for layer in base_model.layers[:-30]:
-        layer.trainable = False
-    print(f"Unfroze top 30 layers of {base_model.name}")
-else:
-    print("Could not find base model layers for fine-tuning, skipping phase 2")
+for layer in model.layers:
+    if unfreeze_from in layer.name:
+        unfreezing = True
+    if unfreezing:
+        if isinstance(layer, layers.BatchNormalization):
+            layer.trainable = False  # keep BatchNorm frozen — prevents corrupting pretrained stats
+        else:
+            layer.trainable = True
+            unfrozen_count += 1
+
+print(f"Unfroze {unfrozen_count} non-BatchNorm layers from '{unfreeze_from}' onward")
 
 model.compile(
     optimizer=tf.keras.optimizers.Adam(FINE_TUNE_LR),
@@ -221,6 +229,7 @@ callbacks_phase2 = [
         min_lr=1e-8,
         verbose=1,
     ),
+    MemoryCleanupCallback(),
 ]
 
 history2 = model.fit(
@@ -240,4 +249,5 @@ loss, accuracy, auc = model.evaluate(val_gen, verbose=1)
 print(f"\n✅ Validation Accuracy : {accuracy*100:.2f}%")
 print(f"✅ Validation AUC      : {auc:.4f}")
 print(f"✅ Validation Loss     : {loss:.4f}")
+
 print(f"\n✅ Model saved to: {OUTPUT_MODEL}")
