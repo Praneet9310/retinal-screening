@@ -5,5 +5,6 @@ psycopg2-binary
 python-multipart
 tensorflow-cpu==2.13.0
 opencv-python-headless==4.8.0.76
-numpy==1.24.3Pillow==9.5.0
+numpy==1.24.3
+Pillow==9.5.0
 scipy==1.10.1
