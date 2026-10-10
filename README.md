@@ -1,6 +1,6 @@
 # 👁️ Retinal Diagnostics AI
 
-**Explainable AI-powered retinal disease classification system** using EfficientNet-B4 and Grad-CAM, with real-time live camera screening.
+**Explainable AI-powered retinal disease classification system** using EfficientNet-B0 and Grad-CAM, with real-time live camera screening.
 
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://retinal-screening.vercel.app/)
 
@@ -40,7 +40,7 @@ The system supports both **static image upload** and **live camera-based screeni
 
 **Backend**
 - FastAPI (Python)
-- TensorFlow / EfficientNet-B4 (classification model)
+- TensorFlow / EfficientNet-B0 (classification model)
 - Grad-CAM (explainability)
 - PostgreSQL (scan record storage)
 - Deployed on [Render](https://render.com)
@@ -58,7 +58,7 @@ The system supports both **static image upload** and **live camera-based screeni
 └─────────────────┘         └──────────────────┘         └──────────────┘
         │                            │
         │                            ▼
-        │                   EfficientNet-B4 + Grad-CAM
+        │                   EfficientNet-B0 + Grad-CAM
         ▼                     (TensorFlow inference)
   getUserMedia (Live Camera)
 ```
