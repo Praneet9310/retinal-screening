@@ -24,10 +24,10 @@ The system supports both **static image upload** and **live camera-based screeni
 ## Features
 
 - 📤 **Image Upload** — upload a fundus scan for instant classification
-- 📹 **Live Retinal Monitor** — real-time camera capture with manual or auto-scan (every 4s) modes
+- 📹 **Live Retinal Monitor** — real-time camera capture with manual or auto-scan modes
 - 🔥 **Grad-CAM Explainability** — visual heatmap overlay showing which regions drove the prediction
 - 📊 **Confidence Scoring** — per-prediction confidence percentage with risk-level banding
-- 🗄️ **Scan History** — total scans processed, persisted via PostgreSQL
+- 🗄️ **Scan History** — total scans processed, persisted in PostgreSQL
 - 📱 **Responsive UI** — works across desktop and mobile
 
 ## Tech Stack
@@ -42,38 +42,66 @@ The system supports both **static image upload** and **live camera-based screeni
 - FastAPI (Python)
 - TensorFlow / EfficientNet-B0 (classification model)
 - Grad-CAM (explainability)
-- PostgreSQL (scan record storage)
-- Deployed on [Render](https://render.com)
+- PostgreSQL on [Neon](https://neon.com) (scan record storage)
+- API deployed on [Render](https://render.com) (Docker)
 
 **Infra**
 - Docker / docker-compose (local orchestration)
-- GitHub Actions-ready structure
 
 ## Architecture
 
 ```
-┌─────────────────┐         ┌──────────────────┐         ┌──────────────┐
-│  Next.js Frontend │  ───▶  │  FastAPI Backend   │  ───▶  │  PostgreSQL   │
-│  (Vercel)          │  ◀──   │  (Render)          │  ◀──   │  (Render)     │
-└─────────────────┘         └──────────────────┘         └──────────────┘
-        │                            │
-        │                            ▼
+┌──────────────────┐        ┌───────────────────┐        ┌───────────────┐
+│ Next.js Frontend │  ───▶  │  FastAPI Backend  │  ───▶  │  PostgreSQL   │
+│    (Vercel)      │  ◀───  │     (Render)      │  ◀───  │    (Neon)     │
+└──────────────────┘        └───────────────────┘        └───────────────┘
+        │                             │
+        │                             ▼
         │                   EfficientNet-B0 + Grad-CAM
-        ▼                     (TensorFlow inference)
-  getUserMedia (Live Camera)
+        ▼                    (TensorFlow inference)
+ getUserMedia (Live Camera)
 ```
+
+## Model
+
+- **Backbone:** EfficientNet-B0 (ImageNet pretrained), 224×224 input
+- **Head:** GlobalAveragePooling → BatchNorm → Dropout → Dense(256) → BatchNorm → Dropout → Softmax(4)
+- **Training:** two phases — (1) train the head with the base frozen, (2) fine-tune the top blocks with BatchNorm layers kept frozen
+- **Augmentation:** rotation, shifts, shear, zoom, horizontal flip, brightness
+
+## Dataset Setup
+
+Trained on the [Eye Diseases Classification](https://www.kaggle.com/datasets/gunavenkatdoddi/eye-diseases-classification) dataset (Normal, Diabetic Retinopathy, Glaucoma, Cataract; ~4,200 fundus images). The images are **not stored in this repo**.
+
+1. Install the Kaggle CLI and add your API token (`pip install kaggle`)
+2. Download and extract into `backend/dataset/`:
+   ```bash
+   cd backend
+   kaggle datasets download -d gunavenkatdoddi/eye-diseases-classification
+   ```
+3. Make sure these four folders sit directly inside `backend/dataset/`:
+   `Normal Retina`, `Diabetic Retinopathy`, `Glaucoma`, `Cataract`
+4. Train:
+   ```bash
+   python train.py
+   ```
+   The best model is saved to `backend/weights/retina_model.h5`.
 
 ## Project Structure
 
 ```
 retinal-screening/
-├── frontend/           # Next.js app
-│   ├── app/             # App Router pages
-│   ├── components/      # UI components (Uploader, LiveMonitor, etc.)
-│   └── .env.local        # NEXT_PUBLIC_API_URL
-├── backend/            # FastAPI service
+├── frontend/             # Next.js app
+│   ├── app/              # App Router pages
+│   ├── components/       # UI components (Uploader, LiveMonitor, etc.)
+│   └── .env.local        # NEXT_PUBLIC_API_URL (not committed)
+├── backend/              # FastAPI service
 │   ├── main.py           # API entrypoint
-│   ├── models/           # ML model + Grad-CAM logic
+│   ├── ai_engine.py      # Model loading, inference, Grad-CAM
+│   ├── database.py       # Database connection
+│   ├── models.py         # SQLAlchemy models
+│   ├── train.py          # Model training script
+│   ├── Dockerfile
 │   └── requirements.txt
 ├── docker-compose.yml
 ├── .gitignore
@@ -84,16 +112,21 @@ retinal-screening/
 
 ### Prerequisites
 - Node.js 18+
-- Python 3.9+
-- PostgreSQL (or use the Dockerized version)
+- Python 3.9 (TensorFlow 2.13 does not support newer Python versions)
+- A PostgreSQL database (e.g. a free [Neon](https://neon.com) project)
 
 ### Backend Setup
 
 ```bash
 cd backend
-python -m venv venv
+py -3.9 -m venv venv
 venv\Scripts\activate        # Windows
 pip install -r requirements.txt
+```
+
+Set your database connection string, then run:
+```bash
+set DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 uvicorn main:app --reload --port 8000
 ```
 
@@ -127,6 +160,9 @@ docker-compose up --build
 | Variable | Where | Description |
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | Frontend | URL of the deployed/local FastAPI backend |
+| `DATABASE_URL` | Backend | PostgreSQL connection string (Neon) |
+
+Never commit real connection strings or credentials.
 
 ## API Endpoints
 
@@ -134,6 +170,12 @@ docker-compose up --build
 |---|---|---|
 | `POST` | `/predict` | Upload an image, returns disease class, confidence, and risk level |
 | `GET` | `/stats` | Returns total scans processed |
+
+## Limitations
+
+- Trained on a modest public dataset (~4,200 images) aggregated from several sources, so performance on images from other cameras may vary
+- Hosted on free tiers: the backend may take up to a minute to wake after idle periods
+- Uploaded scan images are stored on the API server's local disk and may be cleared when the service restarts
 
 ## Disclaimer
 
